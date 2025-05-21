@@ -229,7 +229,7 @@ class Program
 
             try
             {
-                HttpResponseMessage response = await client.PostAsync("https://x.bombe.digitalplaguedoctors.com/submitMalAns", content);
+                HttpResponseMessage response = await client.PostAsync("https://submit.bombe.top/submitMalAns", content);
                 response.EnsureSuccessStatusCode();
                 string responseBody = await response.Content.ReadAsStringAsync();
                 Console.WriteLine($"Response: {responseBody}");

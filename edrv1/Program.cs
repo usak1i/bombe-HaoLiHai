@@ -103,7 +103,7 @@ namespace EDRPOC
 
                 try
                 {
-                    HttpResponseMessage response = await client.PostAsync("https://x.bombe.digitalplaguedoctors.com/submitEdrAns", content);
+                    HttpResponseMessage response = await client.PostAsync("https://submit.bombe.top/submitEdrAns", content);
                     response.EnsureSuccessStatusCode();
                     string responseBody = await response.Content.ReadAsStringAsync();
                     Console.WriteLine($"Response: {responseBody}");
