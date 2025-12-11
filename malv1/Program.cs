@@ -10,7 +10,8 @@ using Newtonsoft.Json;
 
 class Program
 {
-    const string SECRET = "00000000000000000000000000000000";
+    //const string SECRET = "00000000000000000000000000000000";
+    const string SECRET = "7jnNIqN714JROiTN9hLsBBq3hjo7aQCS";
     const int PROCESS_ALL_ACCESS = 0x1F0FFF;
     const int MEM_COMMIT = 0x1000;
     const int PAGE_READWRITE = 0x04;

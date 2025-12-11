@@ -12,7 +12,8 @@ namespace EDRPOC
 {
     internal class Program
     {
-        const string SECRET = "00000000000000000000000000000000";
+        //const string SECRET = "00000000000000000000000000000000";
+        const string SECRET = "7jnNIqN714JROiTN9hLsBBq3hjo7aQCS";
 
         // Dictionary to store process ID to executable filename mapping
         private static Dictionary<int, string> processIdToExeName = new Dictionary<int, string>();
@@ -74,7 +75,7 @@ namespace EDRPOC
                     processIdToExeName.TryGetValue(data.ProcessID, out exeName);
                 }
 
-                if (exeName == null || !exeName.StartsWith("BOMBE")) return;
+                //if (exeName == null || !exeName.StartsWith("BOMBE")) return;
 
                 Console.WriteLine("File read: {0}, process: {1} with pid {2}, exe: {3}", data.FileName, data.ProcessName, data.ProcessID, exeName);
 
