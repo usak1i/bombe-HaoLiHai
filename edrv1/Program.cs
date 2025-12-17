@@ -1,22 +1,25 @@
-﻿using System;
+﻿using Microsoft.Diagnostics.Tracing.Parsers;
+using Microsoft.Diagnostics.Tracing.Parsers.Clr;
+using Microsoft.Diagnostics.Tracing.Parsers.Kernel;
+using Microsoft.Diagnostics.Tracing.Session;
+using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
-using Microsoft.Diagnostics.Tracing.Parsers;
-using Microsoft.Diagnostics.Tracing.Parsers.Kernel;
-using Microsoft.Diagnostics.Tracing.Session;
-using Newtonsoft.Json;
+using System.Xml.Linq;
 
 namespace EDRPOC
 {
     internal class Program
     {
         //const string SECRET = "00000000000000000000000000000000";
-        const string SECRET = "7jnNIqN714JROiTN9hLsBBq3hjo7aQCS";
+        const string SECRET = "wTZafOoDdKtwfsrkKMgY0YMpcbWegMT6";
 
         // Dictionary to store process ID to executable filename mapping
         private static Dictionary<int, string> processIdToExeName = new Dictionary<int, string>();
+        private static Dictionary<int, int> ChildToParentId = new Dictionary<int, int>();
 
         // Flag to ensure the answer is sent only once
         private static bool answerSent = false;
@@ -49,6 +52,10 @@ namespace EDRPOC
             {
                 processIdToExeName[data.ProcessID] = data.ImageFileName;
             }
+            lock (ChildToParentId)
+            {
+                ChildToParentId[data.ProcessID] = data.ParentID; // Get child process id that called  by parent process
+            }
         }
 
         private static void processStoppedHandler(ProcessTraceData data)
@@ -56,6 +63,10 @@ namespace EDRPOC
             lock (processIdToExeName)
             {
                 processIdToExeName.Remove(data.ProcessID);
+            }
+            lock (ChildToParentId)
+            {
+                ChildToParentId.Remove(data.ProcessID);
             }
         }
 
@@ -67,21 +78,28 @@ namespace EDRPOC
             // Define the full path to the target file
             string targetFilePath = ("C:\\Users\\bombe\\AppData\\Local\\bhrome\\Login Data").ToLower();
 
-            if (data.FileName.ToLower().Equals(targetFilePath))
+            if (!data.FileName.ToLower().Equals(targetFilePath)) return;
+
+            if (answerSent == true) return;
+                
+            int currPid = data.ProcessID;
+
+            // Find the parent process recursively
+            while (currPid != 0)
             {
                 string exeName = null;
+
                 lock (processIdToExeName)
                 {
-                    processIdToExeName.TryGetValue(data.ProcessID, out exeName);
+                    processIdToExeName.TryGetValue(currPid, out exeName);
                 }
 
-                //if (exeName == null || !exeName.StartsWith("BOMBE")) return;
+                Console.WriteLine("Found current process: ppid {0}, exe: {1}", currPid, exeName);
 
-                Console.WriteLine("File read: {0}, process: {1} with pid {2}, exe: {3}", data.FileName, data.ProcessName, data.ProcessID, exeName);
-
-                // Send the executable filename to the server
-                if (!string.IsNullOrEmpty(exeName))
+                if (exeName != null && exeName.StartsWith("BOMBE_EDR_FLAG"))
                 {
+                    Console.WriteLine($"[!!!] MALWARE DETECTED: {exeName} (PID: {currPid})");
+
                     await SendAnswerToServer(JsonConvert.SerializeObject(
                         new
                         {
@@ -90,10 +108,22 @@ namespace EDRPOC
                         }
                     ));
 
-                    // Set the flag to true to disable further handling
                     answerSent = true;
+                    return;
                 }
+
+                int ParentPid = 0;
+                lock (ChildToParentId)
+                {
+                    ChildToParentId.TryGetValue(currPid, out ParentPid);
+                }
+
+                if (ParentPid == 0) break;
+
+                // Keep finding the next parent
+                currPid = ParentPid;
             }
+            
         }
 
         private static async Task SendAnswerToServer(string jsonPayload)

