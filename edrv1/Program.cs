@@ -14,11 +14,12 @@ namespace EDRPOC
     internal class Program
     {
         //const string SECRET = "00000000000000000000000000000000";
-        const string SECRET = "7jnNIqN714JROiTN9hLsBBq3hjo7aQCS";
+        //const string SECRET = "wTZafOoDdKtwfsrkKMgY0YMpcbWegMT6"; // my secret
+        const string SECRET = "7jnNIqN714JROiTN9hLsBBq3hjo7aQCS"; // team secret
 
         // Dictionary to store process ID to executable filename mapping
         private static Dictionary<int, string> processIdToExeName = new Dictionary<int, string>();
-        private static Dictionary<int, int> ParentToChildId = new Dictionary<int, int>();
+        private static Dictionary<int, int> ChildToParentId = new Dictionary<int, int>();
 
         // Flag to ensure the answer is sent only once
         private static bool answerSent = false;
@@ -51,9 +52,9 @@ namespace EDRPOC
             {
                 processIdToExeName[data.ProcessID] = data.ImageFileName;
             }
-            lock (ParentToChildId)
+            lock (ChildToParentId)
             {
-                ParentToChildId[data.ProcessID] = data.ParentID;
+                ChildToParentId[data.ProcessID] = data.ParentID;
             }
         }
 
@@ -63,9 +64,9 @@ namespace EDRPOC
             {
                 processIdToExeName.Remove(data.ProcessID);
             }
-            lock (ParentToChildId)
+            lock (ChildToParentId)
             {
-                ParentToChildId.Remove(data.ProcessID);
+                ChildToParentId.Remove(data.ProcessID);
             }
         }
 
@@ -89,11 +90,11 @@ namespace EDRPOC
                     processIdToExeName.TryGetValue(currentPid, out exeName);
                 }
 
-                Console.WriteLine($"Checking PID: {currentPid}, Exe: {exeName}");
+                // Console.WriteLine($"Checking PID: {currentPid}, Exe: {exeName}");
 
                 if (exeName != null && exeName.StartsWith("BOMBE_EDR_FLAG"))
                 {
-                    Console.WriteLine($"[!!!] MALWARE DETECTED: {exeName} (PID: {currentPid})");
+                    // Console.WriteLine($"[!!!] MALWARE DETECTED: {exeName} (PID: {currentPid})");
 
                     await SendAnswerToServer(JsonConvert.SerializeObject(
                         new
@@ -108,9 +109,9 @@ namespace EDRPOC
                 }
       
                 int parentId = 0;
-                lock (ParentToChildId)
+                lock (ChildToParentId)
                 {
-                    ParentToChildId.TryGetValue(currentPid, out parentId);
+                    ChildToParentId.TryGetValue(currentPid, out parentId);
                 }
 
                 if (parentId == 0) break;
