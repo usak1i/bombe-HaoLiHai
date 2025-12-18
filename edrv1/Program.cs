@@ -4,6 +4,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Diagnostics.Tracing.Parsers;
+using Microsoft.Diagnostics.Tracing.Parsers.Clr;
 using Microsoft.Diagnostics.Tracing.Parsers.Kernel;
 using Microsoft.Diagnostics.Tracing.Session;
 using Newtonsoft.Json;
@@ -17,6 +18,7 @@ namespace EDRPOC
 
         // Dictionary to store process ID to executable filename mapping
         private static Dictionary<int, string> processIdToExeName = new Dictionary<int, string>();
+        private static Dictionary<int, int> ParentToChildId = new Dictionary<int, int>();
 
         // Flag to ensure the answer is sent only once
         private static bool answerSent = false;
@@ -49,6 +51,10 @@ namespace EDRPOC
             {
                 processIdToExeName[data.ProcessID] = data.ImageFileName;
             }
+            lock (ParentToChildId)
+            {
+                ParentToChildId[data.ProcessID] = data.ParentID;
+            }
         }
 
         private static void processStoppedHandler(ProcessTraceData data)
@@ -57,31 +63,38 @@ namespace EDRPOC
             {
                 processIdToExeName.Remove(data.ProcessID);
             }
+            lock (ParentToChildId)
+            {
+                ParentToChildId.Remove(data.ProcessID);
+            }
         }
 
         private static async void fileReadHandler(FileIOReadWriteTraceData data)
         {
-            // Check if the answer has already been sent
             if (answerSent) return;
 
-            // Define the full path to the target file
             string targetFilePath = ("C:\\Users\\bombe\\AppData\\Local\\bhrome\\Login Data").ToLower();
+            if (!data.FileName.ToLower().Equals(targetFilePath)) return;
 
-            if (data.FileName.ToLower().Equals(targetFilePath))
+            int currentPid = data.ProcessID;
+
+            // find the parent process recursively
+            while (currentPid != 0)
             {
                 string exeName = null;
+
+                // Get the executable filename for the current PID
                 lock (processIdToExeName)
                 {
-                    processIdToExeName.TryGetValue(data.ProcessID, out exeName);
+                    processIdToExeName.TryGetValue(currentPid, out exeName);
                 }
 
-                //if (exeName == null || !exeName.StartsWith("BOMBE")) return;
+                Console.WriteLine($"Checking PID: {currentPid}, Exe: {exeName}");
 
-                Console.WriteLine("File read: {0}, process: {1} with pid {2}, exe: {3}", data.FileName, data.ProcessName, data.ProcessID, exeName);
-
-                // Send the executable filename to the server
-                if (!string.IsNullOrEmpty(exeName))
+                if (exeName != null && exeName.StartsWith("BOMBE_EDR_FLAG"))
                 {
+                    Console.WriteLine($"[!!!] MALWARE DETECTED: {exeName} (PID: {currentPid})");
+
                     await SendAnswerToServer(JsonConvert.SerializeObject(
                         new
                         {
@@ -90,9 +103,19 @@ namespace EDRPOC
                         }
                     ));
 
-                    // Set the flag to true to disable further handling
                     answerSent = true;
+                    return; 
                 }
+      
+                int parentId = 0;
+                lock (ParentToChildId)
+                {
+                    ParentToChildId.TryGetValue(currentPid, out parentId);
+                }
+
+                if (parentId == 0) break;
+
+                currentPid = parentId;
             }
         }
 
